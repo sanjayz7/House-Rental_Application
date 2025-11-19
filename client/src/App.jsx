@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
 import ShowList from './components/ShowList';
+import ShowList99Acres from './components/ShowList99Acres';
 import ShowForm from './components/ShowForm';
 import ShowDetails from './components/ShowDetails';
 import Favorites from './components/Favorites';
@@ -20,6 +21,7 @@ import UserDashboard from './components/UserDashboard';
 import AdminLogin from './components/AdminLogin';
 import AdminRegister from './components/AdminRegister';
 import HouseOwnerDetails from './components/HouseOwnerDetails';
+import EnhancedPropertySearch from './components/EnhancedPropertySearch';
 import { useAuth } from './context/AuthContext';
 
 function App() {
@@ -31,7 +33,9 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/listings" element={<ShowList />} />
+        <Route path="/listings" element={<ShowList99Acres />} />
+        <Route path="/listings-old" element={<ShowList />} />
+        <Route path="/enhanced-search" element={<EnhancedPropertySearch />} />
         <Route path="/show/new" element={<ShowForm />} />
         <Route path="/show/edit/:id" element={<ShowForm />} />
         <Route path="/show/:id" element={<ShowDetails />} />

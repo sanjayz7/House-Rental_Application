@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Row, Col, Card, Button, Badge, Modal, Form, InputGroup, Pagination, Alert } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { purchaseAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getAllHouses } from '../data/sampleHouses';
+import EnhancedPropertySearch from './EnhancedPropertySearch';
 
 const ShowList = () => {
   const [shows, setShows] = useState([]);
@@ -70,7 +71,7 @@ const ShowList = () => {
   };
 
   // Fetch shows from API and include sample data
-  const fetchShows = async () => {
+  const fetchShows = useCallback(async () => {
     try {
       setLoading(true);
       let allShows = [];
@@ -104,7 +105,7 @@ const ShowList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, minPrice, maxPrice, categoryFilter]);
 
   useEffect(() => {
     fetchShows();
@@ -328,6 +329,11 @@ const ShowList = () => {
         )}
       </div>
 
+      {/* Enhanced Property Search with Map */}
+      <div className="mb-4">
+        <EnhancedPropertySearch onResults={setShows} />
+      </div>
+
       <Row className="mb-3">
         <Col md={6} className="mb-2">
           <InputGroup>
@@ -487,13 +493,13 @@ const ShowList = () => {
                     )}
                   </Card.Title>
                   <Card.Text>
-                    <strong>Rent:</strong> ${show.PRICE}
+                    <strong>Rent:</strong> ${show.PRICE || show.price}
                     <br />
-                    <strong>Address:</strong> {show.ADDRESS || show.VENUE}
+                    <strong>Address:</strong> {show.ADDRESS || show.VENUE || show.locationText || (show.location && show.location.coordinates && `${show.location.coordinates[1]}, ${show.location.coordinates[0]}`)}
                     <br />
-                    {show.BEDROOMS ? <span><strong>Bedrooms:</strong> {show.BEDROOMS}&nbsp;&nbsp;</span> : null}
-                    {show.BATHROOMS ? <span><strong>Bathrooms:</strong> {show.BATHROOMS}&nbsp;&nbsp;</span> : null}
-                    {show.AREA_SQFT ? <span><strong>Area:</strong> {show.AREA_SQFT} sqft</span> : null}
+                    {show.BEDROOMS || show.bedrooms ? <span><strong>Bedrooms:</strong> {show.BEDROOMS || show.bedrooms}&nbsp;&nbsp;</span> : null}
+                    {show.BATHROOMS || show.bathrooms ? <span><strong>Bathrooms:</strong> {show.BATHROOMS || show.bathrooms}&nbsp;&nbsp;</span> : null}
+                    {show.AREA_SQFT || show.area ? <span><strong>Area:</strong> {show.AREA_SQFT || show.area} sqft</span> : null}
                     <br />
                     {show.owner && (
                       <span>
@@ -504,16 +510,21 @@ const ShowList = () => {
                         <br />
                       </span>
                     )}
-                    {show.LATITUDE != null && show.LONGITUDE != null && (
+                    {(show.LATITUDE != null && show.LONGITUDE != null) || (show.location && show.location.coordinates) ? (
                       <span>
-                        <strong>Location:</strong> {show.LATITUDE}, {show.LONGITUDE}
+                        <strong>Location:</strong> {show.LATITUDE != null ? `${show.LATITUDE}, ${show.LONGITUDE}` : `${show.location.coordinates[1]}, ${show.location.coordinates[0]}`}
                         {userLocation && (
                           <span className="ms-2">
-                            <strong>Distance:</strong> {calculateDistance(userLocation.lat, userLocation.lng, show.LATITUDE, show.LONGITUDE).toFixed(1)} km
+                            <strong>Distance:</strong> {calculateDistance(
+                              userLocation.lat, 
+                              userLocation.lng, 
+                              show.LATITUDE || show.location.coordinates[1], 
+                              show.LONGITUDE || show.location.coordinates[0]
+                            ).toFixed(1)} km
                           </span>
                         )}
                       </span>
-                    )}
+                    ) : null}
                   </Card.Text>
                 </Card.Body>
                 <Card.Footer className="d-flex justify-content-between">

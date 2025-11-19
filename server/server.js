@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/admin');
 const imagesRoutes = require('./routes/images');
 const purchaseRoutes = require('./routes/purchases');
 const propertyRequestRoutes = require('./routes/propertyRequests');
+const geolocationRoutes = require('./routes/geolocation');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -24,6 +25,11 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from public directory
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {
@@ -55,6 +61,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/images', imagesRoutes);
 app.use('/api/purchases', purchaseRoutes);
 app.use('/api/property-requests', propertyRequestRoutes);
+app.use('/api/geolocation', geolocationRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

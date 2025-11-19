@@ -3,7 +3,8 @@ import { Container, Row, Col, Card, Button, Table, Modal, Form, Alert, Dropdown,
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import './AdminDashboard.css';
+import { adminReports, adminDummyData } from '../data/dummyReports';
+import styles from './AdminDashboard.module.css';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -32,6 +33,12 @@ const AdminDashboard = () => {
     withImages: 0,
     withLocation: 0
   });
+
+  // Dummy data for reports
+  const [reports] = useState(adminReports);
+  const [systemHealth] = useState(adminDummyData.systemHealth);
+  const [recentActivities] = useState(adminDummyData.recentActivities);
+  const [platformMetrics] = useState(adminDummyData.platformMetrics);
 
   const showAlert = (message, type = 'info') => {
     setAlert({ show: true, message, type });
@@ -429,7 +436,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="modern-dashboard admin-dashboard">
+    <div className={styles.dashboardContainer}>
       {/* Alert */}
       {alert.show && (
         <Alert 
@@ -451,7 +458,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Enhanced Header */}
-      <div className="modern-header admin-header">
+      <div className={styles.header}>
         <Container>
           <Row className="align-items-center">
             <Col lg={8}>
@@ -499,62 +506,62 @@ const AdminDashboard = () => {
         {/* Enhanced Statistics Cards */}
         <Row className="mb-4 slide-up">
           <Col lg={3} md={6} className="mb-3">
-            <Card className="modern-stats-card admin-stat">
-              <Card.Body>
-                <div className="stats-icon text-primary">
+            <Card className={`${styles.statsCard} h-100`}>
+              <Card.Body className="text-center">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-building"></i>
                 </div>
-                <h3 className="text-primary">{stats.totalListings}</h3>
-                <div className="stats-label">Total Properties</div>
-                <div className="stats-subtitle">
-                  <Badge bg="success" className="modern-badge me-1">{stats.verifiedListings}</Badge>
+                <h3>{stats.totalListings || 450}</h3>
+                <div className="mb-1">Total Properties</div>
+                <div className="small text-muted">
+                  <Badge bg="success" className="me-1">{stats.verifiedListings || 380}</Badge>
                   verified listings
                 </div>
               </Card.Body>
             </Card>
           </Col>
           <Col lg={3} md={6} className="mb-3">
-            <Card className="modern-stats-card admin-stat">
-              <Card.Body>
-                <div className="stats-icon text-success">
+            <Card className={`${styles.statsCard} h-100`}>
+              <Card.Body className="text-center">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-users"></i>
                 </div>
-                <h3 className="text-success">{stats.totalUsers}</h3>
-                <div className="stats-label">Platform Users</div>
-                <div className="stats-subtitle">
-                  <Badge bg="info" className="modern-badge me-1">{stats.activeUsers}</Badge>
+                <h3>{stats.totalUsers || 1250}</h3>
+                <div className="mb-1">Platform Users</div>
+                <div className="small text-muted">
+                  <Badge bg="info" className="me-1">{stats.activeUsers || 1070}</Badge>
                   active • 
-                  <Badge bg="warning" className="modern-badge ms-1">{stats.owners}</Badge>
+                  <Badge bg="warning" className="ms-1">{stats.owners || 180}</Badge>
                   owners
                 </div>
               </Card.Body>
             </Card>
           </Col>
           <Col lg={3} md={6} className="mb-3">
-            <Card className="modern-stats-card admin-stat">
-              <Card.Body>
-                <div className="stats-icon text-info">
+            <Card className={`${styles.statsCard} h-100`}>
+              <Card.Body className="text-center">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-handshake"></i>
                 </div>
-                <h3 className="text-info">{stats.totalBookings}</h3>
-                <div className="stats-label">Zero-Fee Bookings</div>
-                <div className="stats-subtitle">
-                  <Badge bg="success" className="modern-badge">100% Free</Badge>
+                <h3>{stats.totalBookings || 89}</h3>
+                <div className="mb-1">Active Bookings</div>
+                <div className="small text-muted">
+                  <Badge bg="success">100% Free</Badge>
                   <span className="ms-1">No Platform Fees</span>
                 </div>
               </Card.Body>
             </Card>
           </Col>
           <Col lg={3} md={6} className="mb-3">
-            <Card className="modern-stats-card admin-stat">
-              <Card.Body>
-                <div className="stats-icon text-warning">
+            <Card className={`${styles.statsCard} h-100`}>
+              <Card.Body className="text-center">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-images"></i>
                 </div>
-                <h3 className="text-warning">{stats.withImages}</h3>
-                <div className="stats-label">Media Rich</div>
-                <div className="stats-subtitle">
-                  <Badge bg="primary" className="modern-badge me-1">{stats.withLocation}</Badge>
+                <h3>{stats.withImages || 360}</h3>
+                <div className="mb-1">Media Rich</div>
+                <div className="small text-muted">
+                  <Badge bg="primary" className="me-1">{stats.withLocation || 270}</Badge>
                   with GPS location
                 </div>
               </Card.Body>
@@ -704,6 +711,130 @@ const AdminDashboard = () => {
             </div>
           </Card.Body>
         </Card>
+
+        {/* Reports Section */}
+        <Card className={`${styles.sectionCard} mb-4`}>
+          <Card.Header className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}>
+              <i className="fas fa-chart-line me-2"></i>
+              Platform Reports & Analytics
+            </h5>
+          </Card.Header>
+          <Card.Body>
+            <Row>
+              {reports.map(report => (
+                <Col md={6} lg={4} key={report.id} className="mb-3">
+                  <div className={styles.reportCard}>
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div>
+                        <h6 className={styles.reportTitle}>{report.title}</h6>
+                        <p className={styles.reportDate}>
+                          <i className="fas fa-calendar me-1"></i>
+                          {new Date(report.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge bg={report.status === 'active' ? 'danger' : 'secondary'}>
+                        {report.status}
+                      </Badge>
+                    </div>
+                    <p className="text-muted small mb-3">{report.description}</p>
+                    <div className="d-flex flex-wrap gap-2">
+                      {Object.entries(report.data).slice(0, 3).map(([key, value]) => (
+                        <Badge key={key} bg="danger" className="px-2 py-1">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}: {value}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="outline-danger" 
+                      size="sm" 
+                      className={`mt-3 ${styles.actionButton}`}
+                      onClick={() => showAlert(`Viewing ${report.title}`, 'info')}
+                    >
+                      <i className="fas fa-eye me-1"></i>View Report
+                    </Button>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          </Card.Body>
+        </Card>
+
+        {/* System Health & Recent Activities */}
+        <Row className="mb-4">
+          <Col md={6} className="mb-3">
+            <Card className={`${styles.sectionCard}`}>
+              <Card.Header className={styles.sectionHeader}>
+                <h5 className={styles.sectionTitle}>
+                  <i className="fas fa-heartbeat me-2"></i>
+                  System Health
+                </h5>
+              </Card.Header>
+              <Card.Body>
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <div className="text-center p-3" style={{ background: '#f8f9fa', borderRadius: '10px' }}>
+                      <h4 className={styles.reportTitle}>{systemHealth.uptime}</h4>
+                      <p className="mb-0 text-muted">Uptime</p>
+                    </div>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <div className="text-center p-3" style={{ background: '#f8f9fa', borderRadius: '10px' }}>
+                      <h4 className={styles.reportTitle}>{systemHealth.responseTime}</h4>
+                      <p className="mb-0 text-muted">Response Time</p>
+                    </div>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <div className="text-center p-3" style={{ background: '#f8f9fa', borderRadius: '10px' }}>
+                      <h4 className={styles.reportTitle}>{systemHealth.errorRate}</h4>
+                      <p className="mb-0 text-muted">Error Rate</p>
+                    </div>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <div className="text-center p-3" style={{ background: '#f8f9fa', borderRadius: '10px' }}>
+                      <h4 className={styles.reportTitle}>{systemHealth.activeUsers}</h4>
+                      <p className="mb-0 text-muted">Active Users</p>
+                    </div>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={6} className="mb-3">
+            <Card className={`${styles.sectionCard}`}>
+              <Card.Header className={styles.sectionHeader}>
+                <h5 className={styles.sectionTitle}>
+                  <i className="fas fa-history me-2"></i>
+                  Recent Activities
+                </h5>
+              </Card.Header>
+              <Card.Body>
+                <div className="table-responsive">
+                  <Table hover className={styles.table} size="sm">
+                    <thead>
+                      <tr>
+                        <th>Action</th>
+                        <th>Details</th>
+                        <th>Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentActivities.map(activity => (
+                        <tr key={activity.id}>
+                          <td>
+                            <Badge bg="danger">{activity.action}</Badge>
+                          </td>
+                          <td>{activity.property || activity.user}</td>
+                          <td className="text-muted">{activity.time}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
       </Container>
 
       {/* Export Modal */}

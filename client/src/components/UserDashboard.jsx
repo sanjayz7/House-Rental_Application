@@ -3,6 +3,8 @@ import { Container, Row, Col, Card, Button, Table, Alert, Badge, Form } from 're
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api, { purchaseAPI } from '../api';
+import { userReports, userDummyData } from '../data/dummyReports';
+import styles from './UserDashboard.module.css';
 
 const UserDashboard = () => {
   const { user, logout } = useAuth();
@@ -27,6 +29,11 @@ const UserDashboard = () => {
     savedSearches: 0,
     viewedProperties: 0
   });
+
+  // Dummy data for reports
+  const [reports] = useState(userReports);
+  const [recentActivity] = useState(userDummyData.recentActivity);
+  const [savedSearches] = useState(userDummyData.savedSearches);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -240,7 +247,7 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className="user-dashboard">
+    <div className={styles.dashboardContainer}>
       {/* Alert */}
       {alert.show && (
         <Alert 
@@ -255,7 +262,7 @@ const UserDashboard = () => {
       )}
 
       {/* Header */}
-      <div className="user-header bg-info text-white py-4 mb-4">
+      <div className={styles.header}>
         <Container>
           <Row className="align-items-center">
             <Col md={8}>
@@ -287,48 +294,48 @@ const UserDashboard = () => {
         {/* Statistics Cards */}
         <Row className="mb-4">
           <Col lg={3} md={6} className="mb-3">
-            <Card className="stats-card h-100">
+            <Card className={`${styles.statsCard} h-100`}>
               <Card.Body className="text-center">
-                <div className="stats-icon text-info mb-2">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-heart"></i>
                 </div>
-                <h3 className="text-info">{stats.totalFavorites}</h3>
+                <h3>{stats.totalFavorites || 8}</h3>
                 <p className="mb-1">Favorite Properties</p>
                 <small className="text-muted">Saved for later</small>
               </Card.Body>
             </Card>
           </Col>
           <Col lg={3} md={6} className="mb-3">
-            <Card className="stats-card h-100">
+            <Card className={`${styles.statsCard} h-100`}>
               <Card.Body className="text-center">
-                <div className="stats-icon text-success mb-2">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-calendar-check"></i>
                 </div>
-                <h3 className="text-success">{stats.totalBookings}</h3>
+                <h3>{stats.totalBookings || 5}</h3>
                 <p className="mb-1">Total Bookings</p>
                 <small className="text-muted">Properties booked</small>
               </Card.Body>
             </Card>
           </Col>
           <Col lg={3} md={6} className="mb-3">
-            <Card className="stats-card h-100">
+            <Card className={`${styles.statsCard} h-100`}>
               <Card.Body className="text-center">
-                <div className="stats-icon text-warning mb-2">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-search"></i>
                 </div>
-                <h3 className="text-warning">{stats.savedSearches}</h3>
+                <h3>{savedSearches.length || 3}</h3>
                 <p className="mb-1">Saved Searches</p>
                 <small className="text-muted">Search alerts</small>
               </Card.Body>
             </Card>
           </Col>
           <Col lg={3} md={6} className="mb-3">
-            <Card className="stats-card h-100">
+            <Card className={`${styles.statsCard} h-100`}>
               <Card.Body className="text-center">
-                <div className="stats-icon text-success mb-2">
+                <div className={styles.statsIcon}>
                   <i className="fas fa-home"></i>
                 </div>
-                <h3 className="text-success">{purchaseStats.completed}</h3>
+                <h3>{purchaseStats.completed || 2}</h3>
                 <p className="mb-1">Properties Purchased</p>
                 <small className="text-muted">Free purchases</small>
               </Card.Body>
@@ -552,6 +559,123 @@ const UserDashboard = () => {
               ) : (
                 renderRecentListings()
               )}
+            </Row>
+          </Card.Body>
+        </Card>
+
+        {/* Reports Section */}
+        <Card className={`${styles.sectionCard} mb-4`}>
+          <Card.Header className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}>
+              <i className="fas fa-chart-line me-2"></i>
+              Reports & Analytics
+            </h5>
+          </Card.Header>
+          <Card.Body>
+            <Row>
+              {reports.map(report => (
+                <Col md={6} lg={4} key={report.id} className="mb-3">
+                  <div className={styles.reportCard}>
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div>
+                        <h6 className={styles.reportTitle}>{report.title}</h6>
+                        <p className={styles.reportDate}>
+                          <i className="fas fa-calendar me-1"></i>
+                          {new Date(report.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge bg={report.status === 'active' ? 'success' : 'secondary'}>
+                        {report.status}
+                      </Badge>
+                    </div>
+                    <p className="text-muted small mb-3">{report.description}</p>
+                    <div className="d-flex flex-wrap gap-2">
+                      {Object.entries(report.data).slice(0, 3).map(([key, value]) => (
+                        <Badge key={key} bg="info" className="px-2 py-1">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}: {value}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="outline-info" 
+                      size="sm" 
+                      className={`mt-3 ${styles.actionButton}`}
+                      onClick={() => showAlert(`Viewing ${report.title}`, 'info')}
+                    >
+                      <i className="fas fa-eye me-1"></i>View Report
+                    </Button>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          </Card.Body>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card className={`${styles.sectionCard} mb-4`}>
+          <Card.Header className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}>
+              <i className="fas fa-history me-2"></i>
+              Recent Activity
+            </h5>
+          </Card.Header>
+          <Card.Body>
+            <div className="table-responsive">
+              <Table hover className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Property</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivity.map(activity => (
+                    <tr key={activity.id}>
+                      <td>
+                        <Badge bg="info">{activity.action}</Badge>
+                      </td>
+                      <td>{activity.property}</td>
+                      <td className="text-muted">{activity.time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Saved Searches */}
+        <Card className={`${styles.sectionCard} mb-4`}>
+          <Card.Header className={styles.sectionHeader}>
+            <h5 className={styles.sectionTitle}>
+              <i className="fas fa-bookmark me-2"></i>
+              Saved Searches
+            </h5>
+          </Card.Header>
+          <Card.Body>
+            <Row>
+              {savedSearches.map(search => (
+                <Col md={4} key={search.id} className="mb-3">
+                  <Card className="h-100">
+                    <Card.Body>
+                      <h6>{search.name}</h6>
+                      <p className="text-muted small mb-2">{search.criteria}</p>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <small className="text-muted">{search.results} results</small>
+                        <Button 
+                          variant="outline-info" 
+                          size="sm"
+                          className={styles.actionButton}
+                          onClick={() => navigate('/listings')}
+                        >
+                          <i className="fas fa-search me-1"></i>Search
+                        </Button>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
             </Row>
           </Card.Body>
         </Card>

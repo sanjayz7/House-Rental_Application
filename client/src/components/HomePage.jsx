@@ -1,13 +1,154 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Dropdown, ButtonGroup } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api';
+
+// Dummy owner data mapping (constant, defined outside component)
+const dummyOwners = {
+  'ramesh.property@gmail.com': {
+    name: 'Ramesh Reddy',
+    email: 'ramesh.property@gmail.com',
+    phone: '+91 9876543216',
+    verified: true
+  },
+  'lakshmi.homes@gmail.com': {
+    name: 'Lakshmi Venkatesh',
+    email: 'lakshmi.homes@gmail.com',
+    phone: '+91 9876543217',
+    verified: true
+  },
+  'david.estates@gmail.com': {
+    name: 'David Wilson',
+    email: 'david.estates@gmail.com',
+    phone: '+91 9876543218',
+    verified: false
+  },
+  'meera.rentals@gmail.com': {
+    name: 'Meera Krishnan',
+    email: 'meera.rentals@gmail.com',
+    phone: '+91 9876543219',
+    verified: true
+  },
+  'sunil.properties@gmail.com': {
+    name: 'Sunil Agarwal',
+    email: 'sunil.properties@gmail.com',
+    phone: '+91 9876543220',
+    verified: true
+  }
+};
 
 const HomePage = () => {
   const { user } = useAuth();
+  const [featuredProperties, setFeaturedProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample property photos for the gallery
-  const sampleProperties = [
+  const fetchFeaturedProperties = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/listings');
+      const listings = response.data?.items || response.data || [];
+      
+      // Take first 4 listings and add owner details
+      const properties = listings.slice(0, 4).map(listing => {
+        const ownerEmail = listing.ownerEmail || listing.owner?.email;
+        const owner = listing.owner || dummyOwners[ownerEmail] || {
+          name: 'Property Owner',
+          email: ownerEmail || 'owner@example.com',
+          phone: '+91 9876543210',
+          verified: listing.verified || false
+        };
+
+        return {
+          id: listing._id || listing.id,
+          title: listing.title,
+          location: listing.location,
+          price: `₹${listing.price?.toLocaleString() || 0}/month`,
+          deposit: `₹${listing.depositAmount?.toLocaleString() || listing.price * 2 || 0}`,
+          area: `${listing.area || 0} sqft`,
+          bedrooms: listing.bedrooms || 1,
+          bathrooms: listing.bathrooms || 1,
+          image: listing.images?.[0] || '/images/rooms/BedRoom.jpg',
+          verified: listing.verified || false,
+          owner: owner,
+          postedTime: listing.created_at ? 
+            `${Math.floor((Date.now() - new Date(listing.created_at).getTime()) / (1000 * 60 * 60 * 24))} days ago` : 
+            'Recently',
+          highlights: listing.amenities || []
+        };
+      });
+
+      // If no listings from API, use sample data with owner details
+      if (properties.length === 0) {
+        setFeaturedProperties([
+          {
+            id: 1,
+            title: "Modern 3 BHK Apartment",
+            location: "Chennai, Tamil Nadu",
+            price: "₹25,000/month",
+            deposit: "₹50,000",
+            area: "1,200 sqft",
+            bedrooms: 3,
+            bathrooms: 2,
+            image: "/images/rooms/BedRoom.jpg",
+            verified: true,
+            owner: dummyOwners['ramesh.property@gmail.com'],
+            postedTime: "2 days ago",
+            highlights: ["Furnished", "Parking", "Security"]
+          },
+          {
+            id: 2,
+            title: "Luxury Villa with Garden",
+            location: "Coimbatore, Tamil Nadu", 
+            price: "₹45,000/month",
+            deposit: "₹90,000",
+            area: "2,500 sqft",
+            bedrooms: 4,
+            bathrooms: 3,
+            image: "/images/properties/Front_View.jpg",
+            verified: true,
+            owner: dummyOwners['lakshmi.homes@gmail.com'],
+            postedTime: "1 week ago",
+            highlights: ["Private Garden", "Full Power Backup", "Servant Quarters"]
+          },
+          {
+            id: 3,
+            title: "Cozy Studio Apartment",
+            location: "Madurai, Tamil Nadu",
+            price: "₹15,000/month",
+            deposit: "₹30,000",
+            area: "800 sqft",
+            bedrooms: 1,
+            bathrooms: 1,
+            image: "/images/rooms/Kitchen.jpg",
+            verified: false,
+            owner: dummyOwners['david.estates@gmail.com'],
+            postedTime: "3 days ago",
+            highlights: ["Furnished", "Kitchen", "Balcony"]
+          },
+          {
+            id: 4,
+            title: "Family House with Balcony",
+            location: "Salem, Tamil Nadu",
+            price: "₹35,000/month",
+            deposit: "₹70,000",
+            area: "1,800 sqft",
+            bedrooms: 3,
+            bathrooms: 2,
+            image: "/images/rooms/Balcony.jpg",
+            verified: true,
+            owner: dummyOwners['meera.rentals@gmail.com'],
+            postedTime: "5 days ago",
+            highlights: ["Balcony", "Parking", "Children's Play Area"]
+          }
+        ]);
+      } else {
+        setFeaturedProperties(properties);
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+      // Use sample data with owner details as fallback
+      setFeaturedProperties([
     {
       id: 1,
       title: "Modern 3 BHK Apartment",
@@ -19,7 +160,7 @@ const HomePage = () => {
       bathrooms: 2,
       image: "/sample-properties/BedRoom.jpg",
       verified: true,
-      postedBy: "Owner",
+          owner: dummyOwners['ramesh.property@gmail.com'],
       postedTime: "2 days ago",
       highlights: ["Furnished", "Parking", "Security"]
     },
@@ -34,7 +175,7 @@ const HomePage = () => {
       bathrooms: 3,
       image: "/sample-properties/Front_View.jpg",
       verified: true,
-      postedBy: "Owner",
+          owner: dummyOwners['lakshmi.homes@gmail.com'],
       postedTime: "1 week ago",
       highlights: ["Private Garden", "Full Power Backup", "Servant Quarters"]
     },
@@ -49,7 +190,7 @@ const HomePage = () => {
       bathrooms: 1,
       image: "/sample-properties/Kitchen.jpg",
       verified: false,
-      postedBy: "Owner",
+          owner: dummyOwners['david.estates@gmail.com'],
       postedTime: "3 days ago",
       highlights: ["Furnished", "Kitchen", "Balcony"]
     },
@@ -64,13 +205,26 @@ const HomePage = () => {
       bathrooms: 2,
       image: "/sample-properties/Balcony.jpg",
       verified: true,
-      postedBy: "Owner",
+          owner: dummyOwners['meera.rentals@gmail.com'],
       postedTime: "5 days ago",
       highlights: ["Balcony", "Parking", "Children's Play Area"]
     }
-  ];
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFeaturedProperties();
+  }, [fetchFeaturedProperties]);
 
   const features = [
+    {
+      icon: '🔍',
+      title: 'Smart Search',
+      description: 'Advanced location-based search with geocoding'
+    },
     {
       icon: '🏠',
       title: 'Nearby Listings',
@@ -244,8 +398,8 @@ const HomePage = () => {
                 </select>
               </Col>
               <Col md={3} className="mb-3 d-flex align-items-end">
-                <Button variant="primary" className="w-100">
-                  🔍 Search Properties
+                <Button as={Link} to="/enhanced-search" variant="primary" className="w-100">
+                  🔍 Smart Search
                 </Button>
               </Col>
             </Row>
@@ -270,7 +424,18 @@ const HomePage = () => {
           </Button>
         </div>
         <Row>
-          {sampleProperties.map((property) => (
+          {loading ? (
+            <Col className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </Col>
+          ) : featuredProperties.length === 0 ? (
+            <Col className="text-center py-5">
+              <p>No properties available at the moment.</p>
+            </Col>
+          ) : (
+            featuredProperties.map((property) => (
             <Col key={property.id} lg={3} md={6} className="mb-4">
               <Card className="property-card h-100">
                 <div className="property-image-container">
@@ -293,7 +458,9 @@ const HomePage = () => {
                 </div>
                 <Card.Body className="d-flex flex-column">
                   <div className="mb-2">
-                    <small className="text-muted">{property.postedBy} • {property.postedTime}</small>
+                      <small className="text-muted">
+                        {property.owner?.name || 'Owner'} • {property.postedTime}
+                      </small>
                   </div>
                   <Card.Title className="property-title">{property.title}</Card.Title>
                   <Card.Text className="property-location text-muted mb-2">
@@ -302,6 +469,30 @@ const HomePage = () => {
                   <Card.Text className="property-location text-muted mb-2">
                     {property.location}
                   </Card.Text>
+                    
+                    {/* Owner Details Section */}
+                    {property.owner && (
+                      <div className="owner-info bg-light rounded p-2 mb-2">
+                        <small className="text-muted d-block mb-1">
+                          <i className="fas fa-user me-1"></i>
+                          <strong>Owner:</strong> {property.owner.name}
+                          {property.owner.verified && (
+                            <Badge bg="success" className="ms-1" style={{ fontSize: '0.65em' }}>
+                              ✓ Verified
+                            </Badge>
+                          )}
+                        </small>
+                        <small className="text-muted d-block mb-1">
+                          <i className="fas fa-envelope me-1"></i>
+                          {property.owner.email}
+                        </small>
+                        <small className="text-muted d-block">
+                          <i className="fas fa-phone me-1"></i>
+                          {property.owner.phone}
+                        </small>
+                      </div>
+                    )}
+
                   <div className="property-highlights mb-3">
                     {property.highlights.map((highlight, index) => (
                       <Badge key={index} bg="light" text="dark" className="me-1 mb-1">
@@ -316,10 +507,20 @@ const HomePage = () => {
                       <small className="text-muted">+ Deposit {property.deposit}</small>
                     </div>
                     <div className="d-grid gap-2">
-                      <Button variant="outline-primary" size="sm">
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm"
+                          as={Link}
+                          to={`/show/${property.id}`}
+                        >
                         View Details
                       </Button>
-                      <Button variant="primary" size="sm">
+                        <Button 
+                          variant="primary" 
+                          size="sm"
+                          as={Link}
+                          to={`/show/${property.id}`}
+                        >
                         Contact Owner
                       </Button>
                     </div>
@@ -327,7 +528,8 @@ const HomePage = () => {
                 </Card.Body>
               </Card>
             </Col>
-          ))}
+            ))
+          )}
         </Row>
       </Container>
 

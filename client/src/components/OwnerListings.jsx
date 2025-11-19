@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -9,17 +9,18 @@ const OwnerListings = () => {
   const [listings, setListings] = useState([]);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await api.get('/listings');
-        setListings((res.data && res.data.items) || res.data || []);
-      } catch (e) {
-        setListings([]);
-      }
-    };
-    fetch();
+  const fetchListings = useCallback(async () => {
+    try {
+      const res = await api.get('/listings');
+      setListings((res.data && res.data.items) || res.data || []);
+    } catch (e) {
+      setListings([]);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchListings();
+  }, [fetchListings]);
 
   const myListings = useMemo(() => {
     // Demo filter: assume DESCRIPTION includes owner name tag like "Owner: <name>" or OWNER_NAME field if present

@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Row, Col, Form, Alert, Modal } from 'react-bootstrap';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { getHouseById, getOwnerByHouseId } from '../data/sampleHouses';
+import { getHouseById } from '../data/sampleHouses';
+import ToastNotification from './ToastNotification';
+import PropertyInquiryModal from './PropertyInquiryModal';
 
 const ShowDetails = () => {
   const { id } = useParams();
@@ -90,19 +92,28 @@ const ShowDetails = () => {
     }
   };
 
-  // Fetch show data - use sample data for now
+  // Fetch show data - prioritize API, fallback to sample data
   useEffect(() => {
     const fetchShowDetails = async () => {
       try {
         setLoading(true);
-        // First try to get from sample data
+        // First try API call (for real listings with MongoDB _id)
+        try {
+          const response = await api.get(`/listings/${id}`);
+          if (response.data && response.data._id) {
+            setShow(response.data);
+            return;
+          }
+        } catch (apiErr) {
+          console.log('API fetch failed, trying sample data:', apiErr.message);
+        }
+        
+        // Fallback to sample data if API fails
         const sampleShow = getHouseById(id);
         if (sampleShow) {
           setShow(sampleShow);
         } else {
-          // Fallback to API call
-          const response = await api.get(`/listings/${id}`);
-          setShow(response.data);
+          setError('Listing not found');
         }
       } catch (err) {
         console.error('Error fetching show details:', err);
@@ -160,37 +171,94 @@ const ShowDetails = () => {
 
     setPurchaseLoading(true);
     try {
-      // For demo purposes, we'll simulate the request
+      // Prioritize MongoDB _id (from API), fallback to SHOW_ID (from sample data)
+      const listingId = show._id || show.id;
+      const message = requestMessage || "I'm interested in viewing this property. Please provide more details.";
+      
+      // Validate listingId - must be a valid MongoDB ObjectId or we can't create request
+      if (!listingId) {
+        setPurchaseAlert({
+          show: true,
+          message: 'Property ID not found. This property may be from sample data. Please select a property from the listings page.',
+          variant: 'warning'
+        });
+        setPurchaseLoading(false);
+        return;
+      }
+
+      // Check if this is sample data (has SHOW_ID but no _id)
+      if (show.SHOW_ID && !show._id) {
+        setPurchaseAlert({
+          show: true,
+          message: 'This is a sample property. Please select a real property from the listings to send a request.',
+          variant: 'warning'
+        });
+        setPurchaseLoading(false);
+        return;
+      }
+      
+      // Send request to backend API
+      try {
+        console.log('📤 Sending property request:', {
+          listingId,
+          listingIdType: typeof listingId,
+          message: message.substring(0, 50) + '...',
+          userEmail: user.email,
+          userName: user.name,
+          propertyTitle: show.title || show.TITLE,
+          ownerEmail: show.ownerEmail || show.owner?.email,
+          hasMongoId: !!show._id,
+          hasShowId: !!show.SHOW_ID
+        });
+        
+        const response = await api.post('/property-requests', {
+          listingId: listingId.toString(), // Ensure it's a string
+          message
+        });
+        
+        console.log('✅ Request sent successfully:', response.data);
+        
+        // Get owner name for success message (handle both owner object and ownerEmail)
+        const ownerName = show.owner?.name || show.ownerEmail || 'the property owner';
+        
+        setPurchaseAlert({
+          show: true,
+          message: `Your inquiry has been sent successfully to ${ownerName}! They will review your request and contact you at ${user.email} within 24-48 hours.`,
+          variant: 'success'
+        });
+      } catch (apiError) {
+        console.error('❌ API error creating request:', {
+          error: apiError.response?.data || apiError.message,
+          status: apiError.response?.status,
+          listingId,
+          userEmail: user.email
+        });
+        
+        // Fallback: Store in localStorage if API fails
       const requestData = {
-        listingId: show.SHOW_ID || show._id,
-        ownerEmail: show.owner.email,
-        ownerName: show.owner.name,
-        propertyTitle: show.TITLE,
+          listingId: listingId,
+          ownerEmail: show.ownerEmail || show.owner?.email,
+          ownerName: show.owner?.name || 'Property Owner',
+          propertyTitle: show.title || show.TITLE,
         userEmail: user.email,
         userName: user.name,
-        message: requestMessage || "I'm interested in viewing this property. Please provide more details.",
+          message: message,
         timestamp: new Date().toISOString()
       };
       
-      // Store request in localStorage for demo
       const existingRequests = JSON.parse(localStorage.getItem('propertyRequests') || '[]');
       existingRequests.push(requestData);
       localStorage.setItem('propertyRequests', JSON.stringify(existingRequests));
       
-      // Also try API call (will work if backend is available)
-      try {
-        await api.post('/api/property-requests', requestData);
-      } catch (apiError) {
-        console.log('API not available, using localStorage only');
-      }
-      
       setPurchaseAlert({
         show: true,
-        message: `Request sent successfully to ${show.owner.name}! The owner will contact you soon at your registered email.`,
-        variant: 'success'
+        message: `Your inquiry has been saved locally! Please ensure you're connected to the internet for the owner to receive your request.`,
+        variant: 'warning'
       });
+      }
 
       setShowRequestModal(false);
+      setRequestMessage('');
       
       // Hide alert after 5 seconds
       setTimeout(() => {
@@ -199,11 +267,11 @@ const ShowDetails = () => {
 
     } catch (error) {
       console.error('Purchase error:', error);
-      setPurchaseAlert({
-        show: true,
-        message: error.response?.data?.message || 'Failed to purchase property. Please try again.',
-        variant: 'danger'
-      });
+        setPurchaseAlert({
+          show: true,
+          message: error.response?.data?.message || 'Unable to send your inquiry. Please check your internet connection and try again.',
+          variant: 'danger'
+        });
       
       // Hide alert after 5 seconds
       setTimeout(() => {
@@ -238,31 +306,46 @@ const ShowDetails = () => {
 
   return (
     <div>
-      {/* Purchase Alert */}
-      {purchaseAlert.show && (
-        <Alert 
-          variant={purchaseAlert.variant} 
-          dismissible 
-          onClose={() => setPurchaseAlert({ show: false, message: '', variant: 'success' })}
-          className="mb-3"
-        >
-          {purchaseAlert.message}
-        </Alert>
-      )}
+      {/* Enhanced Toast Notification */}
+      <ToastNotification
+        show={purchaseAlert.show}
+        message={purchaseAlert.message}
+        variant={purchaseAlert.variant}
+        onClose={() => setPurchaseAlert({ show: false, message: '', variant: 'success' })}
+        duration={5000}
+        position="top-right"
+      />
 
-      <div className="d-flex justify-content-between align-items-center page-header">
-        <h2>Listing Details</h2>
+      <div 
+        className="d-flex justify-content-between align-items-center page-header mb-4"
+        style={{
+          padding: '1.5rem',
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+          borderRadius: '12px',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)'
+        }}
+      >
         <div>
+          <h2 className="mb-1 fw-bold" style={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}>
+            <i className="fas fa-home me-2"></i>Listing Details
+          </h2>
+          <small className="text-muted">View and manage property information</small>
+        </div>
+        <div className="d-flex gap-2">
           <Button 
             variant="outline-secondary" 
             onClick={() => navigate(`/show/edit/${id}`)}
-            className="me-2"
+            style={{ borderRadius: '8px', fontWeight: '600' }}
           >
-            Edit Listing
+            <i className="fas fa-edit me-2"></i>Edit Listing
           </Button>
           <Button 
             variant="outline-warning" 
-            className="me-2"
             onClick={() => {
               const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
               if (!favs.find(f => f.SHOW_ID === show.SHOW_ID)) {
@@ -271,34 +354,107 @@ const ShowDetails = () => {
               }
               navigate('/favorites');
             }}
+            style={{ borderRadius: '8px', fontWeight: '600' }}
           >
-            Add to Favorites
+            <i className="fas fa-heart me-2"></i>Add to Favorites
           </Button>
           <Button 
             variant="primary" 
             onClick={() => navigate('/')}
+            style={{ 
+              borderRadius: '8px', 
+              fontWeight: '600',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none'
+            }}
           >
-            Back to Listings
+            <i className="fas fa-arrow-left me-2"></i>Back to Listings
           </Button>
         </div>
       </div>
 
-      <Card className="show-details mb-4">
-        <Card.Header className="d-flex justify-content-between align-items-center">
-          <h3 className="mb-0">{show.TITLE}</h3>
+      <Card 
+        className="show-details mb-4 border-0 shadow-lg"
+        style={{ borderRadius: '16px', overflow: 'hidden' }}
+      >
+        <Card.Header 
+          className="d-flex justify-content-between align-items-center"
+          style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            padding: '1.5rem',
+            borderBottom: 'none'
+          }}
+        >
+          <div>
+            <h3 className="mb-1 fw-bold">{show.title || show.TITLE}</h3>
+            <small className="opacity-75">
+              <i className="fas fa-map-marker-alt me-1"></i>
+              {show.locationText || show.ADDRESS || 'Location not specified'}
+            </small>
+          </div>
+          <div className="d-flex gap-2">
+            {show.propertyType && (
+              <Badge 
+                bg="light" 
+                text="dark" 
+                className="px-3 py-2"
+                style={{ borderRadius: '20px', fontSize: '0.85rem' }}
+              >
+                <i className="fas fa-building me-1"></i>{show.propertyType}
+              </Badge>
+            )}
           {show.CATEGORY && (
-            <Badge bg="info" className="px-3 py-2">{show.CATEGORY}</Badge>
+              <Badge 
+                bg="info" 
+                className="px-3 py-2"
+                style={{ borderRadius: '20px', fontSize: '0.85rem' }}
+              >
+                {show.CATEGORY}
+              </Badge>
           )}
-          {show.VERIFIED && (
-            <Badge bg="success" className="px-3 py-2 ms-2">Verified</Badge>
+            {(show.verified || show.VERIFIED) && (
+              <Badge 
+                bg="success" 
+                className="px-3 py-2"
+                style={{ borderRadius: '20px', fontSize: '0.85rem' }}
+              >
+                <i className="fas fa-check-circle me-1"></i>Verified
+              </Badge>
           )}
+          </div>
         </Card.Header>
         <Card.Body>
           <Row>
             <Col md={8}>
-              {show.IMAGE_URL && (
-                <div className="mb-3">
-                  <img src={show.IMAGE_URL} alt={show.TITLE} style={{ maxWidth: '100%', borderRadius: 8 }} />
+              {(show.IMAGE_URL || show.images?.[0]) && (
+                <div 
+                  className="mb-4" 
+                  style={{ 
+                    borderRadius: '12px', 
+                    overflow: 'hidden', 
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.01)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                  }}
+                >
+                  <img 
+                    src={show.images?.[0] || show.IMAGE_URL} 
+                    alt={show.title || show.TITLE} 
+                    style={{ 
+                      width: '100%', 
+                      height: '450px',
+                      objectFit: 'cover',
+                      display: 'block'
+                    }} 
+                  />
                 </div>
               )}
               {show.DESCRIPTION && (
@@ -434,12 +590,29 @@ const ShowDetails = () => {
                           size="lg"
                           onClick={() => setShowRequestModal(true)}
                           disabled={purchaseLoading}
-                          className="fw-bold"
+                          className="fw-bold request-property-btn"
+                          style={{
+                            background: 'var(--success-gradient)',
+                            border: 'none',
+                            borderRadius: 'var(--border-radius-md)',
+                            padding: '0.75rem 1.5rem',
+                            boxShadow: 'var(--shadow-md)',
+                            transition: 'var(--transition-normal)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-2px)';
+                            e.target.style.boxShadow = '0 6px 20px rgba(67, 233, 123, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 4px 15px rgba(67, 233, 123, 0.3)';
+                          }}
                         >
-                          <i className="fas fa-envelope me-2"></i>
+                          <i className="fas fa-paper-plane me-2"></i>
                           Request Property Info
                         </Button>
-                        <small className="text-muted text-center">
+                        <small className="text-muted text-center d-block mt-2">
+                          <i className="fas fa-info-circle me-1"></i>
                           Send inquiry directly to {show.owner?.name || 'the owner'}
                         </small>
                       </>
@@ -501,100 +674,18 @@ const ShowDetails = () => {
         </Card.Footer>
       </Card>
 
-      {/* Property Request Modal */}
-      <Modal show={showRequestModal} onHide={() => setShowRequestModal(false)} size="lg">
-        <Modal.Header closeButton className="bg-primary text-white">
-          <Modal.Title>
-            <i className="fas fa-paper-plane me-2"></i>
-            Send Property Inquiry
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="mb-4">
-            <h6 className="text-primary mb-3">Property Details</h6>
-            <div className="bg-light rounded p-3">
-              <div className="row">
-                <div className="col-md-8">
-                  <h6 className="mb-1">{show.TITLE}</h6>
-                  <p className="text-muted mb-1">{show.ADDRESS}</p>
-                  <p className="mb-0"><strong>Rent:</strong> ${show.PRICE}/month</p>
-                </div>
-                <div className="col-md-4 text-end">
-                  <Badge bg="success">Available</Badge>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mb-4">
-            <h6 className="text-primary mb-3">Owner Information</h6>
-            <div className="bg-light rounded p-3">
-              <div className="d-flex align-items-center">
-                <div className="me-3">
-                  <i className="fas fa-user-circle text-primary" style={{fontSize: '2rem'}}></i>
-                </div>
-                <div>
-                  <h6 className="mb-1">{show.owner?.name || 'John Smith'}</h6>
-                  <p className="text-muted mb-1">{show.owner?.email || 'john.smith@example.com'}</p>
-                  {show.owner?.verified && (
-                    <Badge bg="success" className="small">
-                      <i className="fas fa-shield-check me-1"></i>
-                      Verified Owner
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mb-3">
-            <p className="mb-3">
-              <i className="fas fa-info-circle text-info me-2"></i>
-              Your inquiry will be sent directly to <strong>{show.owner?.name || 'the property owner'}</strong>. 
-              They will contact you with more details and schedule a viewing if you're both interested.
-            </p>
-          </div>
-          
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Your Message to the Owner</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={5}
-                value={requestMessage}
-                onChange={(e) => setRequestMessage(e.target.value)}
-                placeholder={`Hi ${show.owner?.name || 'there'},\n\nI'm interested in your property "${show.TITLE}" listed at $${show.PRICE}/month.\n\nCould you please provide more information about:\n- Available move-in dates\n- Lease terms and conditions\n- Security deposit requirements\n- Any additional amenities or features\n\nI would also like to schedule a viewing at your convenience.\n\nThank you!`}
-              />
-              <Form.Text className="text-muted">
-                Be specific about your requirements and questions to get a better response.
-              </Form.Text>
-            </Form.Group>
-            
-            {user && (
-              <div className="bg-light rounded p-3 mb-3">
-                <h6 className="mb-2">Your Contact Information</h6>
-                <p className="mb-1"><strong>Name:</strong> {user.name}</p>
-                <p className="mb-0"><strong>Email:</strong> {user.email}</p>
-                <small className="text-muted">This information will be shared with the property owner.</small>
-              </div>
-            )}
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setShowRequestModal(false)}>
-            <i className="fas fa-times me-2"></i>
-            Cancel
-          </Button>
-          <Button 
-            variant="success" 
-            onClick={handlePropertyRequest}
-            disabled={purchaseLoading || !requestMessage.trim()}
-          >
-            <i className={`fas fa-${purchaseLoading ? 'spinner fa-spin' : 'paper-plane'} me-2`}></i>
-            {purchaseLoading ? 'Sending Request...' : `Send to ${show.owner?.name || 'Owner'}`}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Modular Property Inquiry Modal */}
+      <PropertyInquiryModal
+        show={showRequestModal}
+        onHide={() => setShowRequestModal(false)}
+        property={show}
+        owner={show.owner}
+        user={user}
+        requestMessage={requestMessage}
+        onMessageChange={setRequestMessage}
+        onSubmit={handlePropertyRequest}
+        loading={purchaseLoading}
+      />
 
       {/* Navigation Modal */}
       <Modal show={showNavigationModal} onHide={() => setShowNavigationModal(false)} size="lg">

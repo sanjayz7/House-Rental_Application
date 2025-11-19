@@ -1,0 +1,120 @@
+/* Owner Dashboard - Green/Success Theme */
+.dashboardContainer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%);
+  padding-bottom: 2rem;
+}
+
+.header {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: white;
+  padding: 2rem 0;
+  box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
+}
+
+.statsCard {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.statsCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(67, 233, 123, 0.2);
+}
+
+.statsIcon {
+  font-size: 2.5rem;
+  color: #43e97b;
+  margin-bottom: 1rem;
+}
+
+.statsCard h3 {
+  color: #43e97b;
+  font-weight: 700;
+  font-size: 2rem;
+}
+
+.sectionCard {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  background: white;
+  margin-bottom: 2rem;
+}
+
+.sectionHeader {
+  background: linear-gradient(135deg, rgba(67, 233, 123, 0.1) 0%, rgba(56, 249, 215, 0.1) 100%);
+  border-bottom: 3px solid #43e97b;
+  padding: 1.5rem;
+  border-radius: 16px 16px 0 0;
+}
+
+.sectionTitle {
+  color: #43e97b;
+  font-weight: 700;
+  margin: 0;
+}
+
+.reportCard {
+  border-left: 4px solid #43e97b;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, rgba(67, 233, 123, 0.05) 0%, rgba(56, 249, 215, 0.05) 100%);
+  transition: all 0.3s ease;
+}
+
+.reportCard:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(67, 233, 123, 0.2);
+}
+
+.reportTitle {
+  color: #43e97b;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.reportDate {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.actionButton {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.actionButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(67, 233, 123, 0.4);
+  color: white;
+}
+
+.table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table thead {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: white;
+}
+
+.table tbody tr:hover {
+  background: rgba(67, 233, 123, 0.05);
+}
+
+.badge {
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+

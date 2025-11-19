@@ -1,17 +1,35 @@
 const { Listing } = require('../models');
 
-exports.getAllListings = async (req, res) => {
+exports.getListings = async (req, res) => {
   try {
-    const listings = await Listing.find()
-      .sort({ created_at: -1 })
-      .lean();
-    
-    res.json(listings);
+    const { lat, lng, radius } = req.query; // radius in meters
+
+    if (lat && lng) {
+      const maxDistance = parseInt(radius, 10) || 5000; // default 5km
+
+      const listings = await Listing.find({
+        location: {
+          $near: {
+            $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
+            $maxDistance: maxDistance
+          }
+        }
+      }).limit(200);
+
+      return res.json(listings);
+    }
+
+    // fallback: paginated/all listings
+    const listings = await Listing.find().sort({ createdAt: -1 }).limit(200);
+    return res.json(listings);
   } catch (err) {
-    console.error('Get all listings error:', err);
-    res.status(500).json({ error: 'Failed to fetch listings', details: err.message });
+    console.error('getListings error', err);
+    return res.status(500).json({ message: 'Failed to get listings' });
   }
 };
+
+// Keep getAllListings for backward compatibility
+exports.getAllListings = exports.getListings;
 
 exports.searchListings = async (req, res) => {
   try {
@@ -57,7 +75,9 @@ exports.searchListings = async (req, res) => {
 exports.getListingById = async (req, res) => {
   try {
     const { id } = req.params;
-    const listing = await Listing.findById(id).lean();
+    const listing = await Listing.findById(id)
+      .populate('owner', 'name email')
+      .lean();
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
     res.json(listing);
   } catch (err) {
@@ -68,59 +88,50 @@ exports.getListingById = async (req, res) => {
 
 exports.createListing = async (req, res) => {
   try {
-    const ownerId = req.user.userId;
-    const b = req.body;
-    
-    // Create the listing document
+    // ownerEmail from authenticated user if available, otherwise from body
+    const ownerEmail = req.user?.email || req.body.ownerEmail;
+    if (!ownerEmail) return res.status(400).json({ message: 'ownerEmail required' });
+
+    // accept location as { lat, lng } or GeoJSON
+    let location = { type: 'Point', coordinates: [0, 0] };
+    if (req.body.location && req.body.location.coordinates) {
+      location = req.body.location;
+    } else if (req.body.lat && req.body.lng) {
+      location = { type: 'Point', coordinates: [parseFloat(req.body.lng), parseFloat(req.body.lat)] };
+    }
+
+    const images = Array.isArray(req.body.images) ? req.body.images : [];
+
     const listingData = {
-      owner_id: ownerId,
-      title: b.title,
-      description: b.description || '',
-      image_url: b.image_url || '',
-      address: b.address || '',
-      location: b.latitude && b.longitude ? {
-        type: 'Point',
-        coordinates: [b.longitude, b.latitude]
-      } : undefined,
-      owner_phone: b.owner_phone || '',
-      bedrooms: b.bedrooms || null,
-      bathrooms: b.bathrooms || null,
-      area_sqft: b.area_sqft || null,
-      furnished: b.furnished || '',
-      verified: Boolean(b.verified),
-      deposit: b.deposit || null,
-      available_from: b.show_date ? new Date(b.show_date) : null,
-      contact_start: b.start_time || null,
-      contact_end: b.end_time || null,
-      price: b.price,
-      total_units: b.total_seats || 1,
-      available_units: b.available_seats || 1,
-      city: b.venue || '',
-      category: b.category || ''
+      title: req.body.title,
+      description: req.body.description,
+      price: req.body.price,
+      locationText: req.body.locationText || req.body.address || '',
+      location,
+      propertyType: req.body.propertyType,
+      bedrooms: req.body.bedrooms,
+      bathrooms: req.body.bathrooms,
+      area: req.body.area,
+      furnished: req.body.furnished,
+      furnishing: req.body.furnishing || 'Unfurnished',
+      depositAmount: req.body.depositAmount || 0,
+      availableFor: req.body.availableFor || 'Any',
+      availableUnits: req.body.availableUnits || 1,
+      amenities: req.body.amenities || [],
+      images,
+      ownerEmail
     };
 
-    // Create new listing
-    const listing = await Listing.create(listingData);
-    
-    // Add images if provided
-    if (b.images && Array.isArray(b.images) && b.images.length > 0) {
-      const images = b.images.map((image, i) => ({
-        url: image.url || image.preview,
-        name: image.name,
-        size: image.size,
-        width: image.dimensions?.width,
-        height: image.dimensions?.height,
-        is_primary: i === 0,
-        sort_order: i
-      }));
-      listing.images = images;
-      await listing.save();
+    // Set owner reference if authenticated user exists
+    if (req.user?.userId) {
+      listingData.owner = req.user.userId;
     }
-    
-    res.status(201).json(listing);
+
+    const listing = await Listing.create(listingData);
+    return res.status(201).json(listing);
   } catch (err) {
-    console.error('Create listing error:', err);
-    res.status(500).json({ error: 'Failed to create listing', details: err.message });
+    console.error('createListing error', err);
+    return res.status(500).json({ message: 'Failed to create listing' });
   }
 };
 

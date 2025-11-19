@@ -3,7 +3,10 @@ const router = express.Router();
 const imagesController = require('../controllers/imagesController');
 const auth = require('../middleware/auth');
 
-// All routes require authentication
+// Upload images endpoint (requires authentication)
+router.post('/upload', auth.authenticate, imagesController.uploadMiddleware, imagesController.uploadImages);
+
+// All other routes require authentication
 router.use(auth.authenticate);
 
 // Get all images for a listing

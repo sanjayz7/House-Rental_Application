@@ -20,6 +20,7 @@ const HouseOwnerAddListing = () => {
     bathrooms: '',
     area_sqft: '',
     furnished: '',
+    availableFor: 'Any',
     deposit: '',
     show_date: '',
     start_time: '',
@@ -60,30 +61,68 @@ const HouseOwnerAddListing = () => {
         return;
       }
       
-      // Validate images
-      if (images.length === 0) {
-        setError('Please upload at least one property photo.');
-        setLoading(false);
-        return;
+      // 1) Upload images if any
+      let imageUrls = [];
+      if (images && images.length > 0) {
+        const fd = new FormData();
+        images.forEach((img) => {
+          if (img.file) {
+            fd.append('images', img.file);
+          }
+        });
+        
+        const imgRes = await api.post('/images/upload', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        imageUrls = imgRes.data.urls || [];
       }
       
-      // Prepare data for submission
-      let dataToSubmit = {
-        ...formData,
-        ownerEmail: user?.email,
-        verified: false, // New listings start as unverified
-        rent: formData.price, // Map price to rent for consistency
-        image_url: images[0].preview, // Use first image as primary
-        images: images.map(img => ({
-          url: img.preview,
-          name: img.name,
-          size: img.size,
-          dimensions: img.dimensions
-        }))
+      // 2) Prepare location data (GeoJSON)
+      let location = { type: 'Point', coordinates: [0, 0] };
+      if (formData.latitude && formData.longitude) {
+        location = {
+          type: 'Point',
+          coordinates: [parseFloat(formData.longitude), parseFloat(formData.latitude)]
+        };
+      }
+
+      // Map furnished status to both fields
+      let furnished = 'UNFURNISHED';
+      let furnishing = 'Unfurnished';
+      if (formData.furnished) {
+        if (formData.furnished.includes('Fully')) {
+          furnished = 'FURNISHED';
+          furnishing = 'Furnished';
+        } else if (formData.furnished.includes('Semi')) {
+          furnished = 'SEMI_FURNISHED';
+          furnishing = 'Semi-furnished';
+        } else {
+          furnished = 'UNFURNISHED';
+          furnishing = 'Unfurnished';
+        }
+      }
+
+      // 3) Create listing with image URLs and all required fields
+      const payload = {
+        title: formData.title,
+        description: formData.description || '',
+        locationText: formData.address || formData.venue || '',
+        location: location,
+        price: parseFloat(formData.price) || 0,
+        propertyType: formData.category || 'Apartment',
+        bedrooms: parseInt(formData.bedrooms) || 1,
+        bathrooms: parseInt(formData.bathrooms) || 1,
+        area: parseInt(formData.area_sqft) || 0,
+        furnished: furnished,
+        furnishing: furnishing,
+        depositAmount: parseFloat(formData.deposit) || 0,
+        availableFor: formData.availableFor || 'Any',
+        availableUnits: parseInt(formData.available_seats) || parseInt(formData.total_seats) || 1,
+        amenities: [],
+        images: imageUrls
       };
       
-      // Create new listing
-      await api.post('/listings', dataToSubmit);
+      const res = await api.post('/listings', payload);
       setSuccess('Property listed successfully! It will be reviewed by our team before going live.');
       
       // Clear form
@@ -98,6 +137,7 @@ const HouseOwnerAddListing = () => {
         bathrooms: '',
         area_sqft: '',
         furnished: '',
+        availableFor: 'Any',
         deposit: '',
         show_date: '',
         start_time: '',
@@ -116,8 +156,8 @@ const HouseOwnerAddListing = () => {
       }, 2000);
       
     } catch (err) {
-      console.error('Error creating listing:', err);
-      setError('Failed to create listing. Please check your input and try again.');
+      console.error('Create listing error', err);
+      setError(err.response?.data?.message || 'Failed to create listing. Please check your input and try again.');
     } finally {
       setLoading(false);
     }
@@ -285,7 +325,7 @@ const HouseOwnerAddListing = () => {
                     </Row>
 
                     <Row>
-                      <Col md={6}>
+                      <Col md={4}>
                         <Form.Group className="mb-3">
                           <Form.Label>Furnished Status</Form.Label>
                           <Form.Select
@@ -301,7 +341,23 @@ const HouseOwnerAddListing = () => {
                           </Form.Select>
                         </Form.Group>
                       </Col>
-                      <Col md={6}>
+                      <Col md={4}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>Available For</Form.Label>
+                          <Form.Select
+                            name="availableFor"
+                            value={formData.availableFor || 'Any'}
+                            onChange={handleChange}
+                            className="form-control-lg"
+                          >
+                            <option value="Any">Any</option>
+                            <option value="Family">Family</option>
+                            <option value="Bachelors">Bachelors</option>
+                            <option value="Married Couples">Married Couples</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
                         <Form.Group className="mb-3">
                           <Form.Label>Security Deposit ($)</Form.Label>
                           <Form.Control

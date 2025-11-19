@@ -44,7 +44,7 @@ exports.register = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role, name: user.name }, 
+      { userId: user._id, role: user.role, name: user.name, email: user.email }, 
       JWT_SECRET, 
       { expiresIn: '7d' }
     );
@@ -81,6 +81,12 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
+    // Check if password hash exists
+    if (!user.password_hash) {
+      console.error('User found but password_hash is undefined:', user.email);
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+    
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
@@ -92,7 +98,8 @@ exports.login = async (req, res) => {
       { 
         userId: user._id, 
         role: user.role, 
-        name: user.name 
+        name: user.name,
+        email: user.email
       }, 
       JWT_SECRET, 
       { expiresIn: '7d' }
