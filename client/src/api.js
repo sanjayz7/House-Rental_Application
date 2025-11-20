@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 
-const api = axios.create({
+
+export const api = axios.create({
   baseURL: 'https://house-rental-application-1.onrender.com/api'
 });
 

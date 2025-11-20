@@ -1,8 +1,10 @@
-// Load environment variables from .env file
+// Load environment variables
 require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+
 const mongoDb = require('./db/mongoConnection');
 const showRoutes = require('./routes/shows');
 const authRoutes = require('./routes/auth');
@@ -17,42 +19,52 @@ const geolocationRoutes = require('./routes/geolocation');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Middleware
+// -----------------------------
+// 🚀 FIXED CORS FOR DEPLOYMENT
+// -----------------------------
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://house-rental-application-yk8a.vercel.app',   // Your Frontend URL
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Extra CORS headers (Render sometimes needs this)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://house-rental-application-yk8a.vercel.app");
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
+// -----------------------------
+// Middleware
+// -----------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from public directory
-const path = require('path');
+// Serve uploaded image files
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Debug middleware to log all requests
+// Request logger
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// Initialize MongoDB
+// -----------------------------
+// MongoDB Init
+// -----------------------------
 mongoDb.initialize()
-  .then(() => {
-    console.log('MongoDB initialized successfully');
-  })
-  .catch(err => {
-    console.error('Failed to initialize MongoDB:', err);
-  });
+  .then(() => console.log('MongoDB initialized successfully'))
+  .catch(err => console.error('Failed to initialize MongoDB:', err));
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
+// -----------------------------
 // Routes
+// -----------------------------
 app.use('/api/shows', showRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingsRoutes);
@@ -63,25 +75,30 @@ app.use('/api/purchases', purchaseRoutes);
 app.use('/api/property-requests', propertyRequestRoutes);
 app.use('/api/geolocation', geolocationRoutes);
 
-// Basic route for testing
+// Basic test route
 app.get('/', (req, res) => {
   res.send('Home Rental API is running');
 });
 
-// Error handling middleware
+// -----------------------------
+// Global Error Handler
+// -----------------------------
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(500).json({ error: 'Server error', message: err.message });
 });
 
+// -----------------------------
 // Start server
+// -----------------------------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Server accessible at: http://localhost:${PORT}`);
-  console.log(`JWT_SECRET: ${process.env.JWT_SECRET ? 'Set' : 'Using default'}`);
+  console.log(`Live API: http://localhost:${PORT}`);
 });
 
-// Handle application shutdown
+// -----------------------------
+// Graceful shutdown
+// -----------------------------
 process.on('SIGINT', async () => {
   try {
     await mongoDb.close();
