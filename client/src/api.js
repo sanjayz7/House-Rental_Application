@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: 'http://localhost:5001/api' });
+const api = axios.create({
+  baseURL: 'https://house-rental-application-1.onrender.com/api'
+});
+
 
 export const setAuthToken = (token) => {
   if (token) {
